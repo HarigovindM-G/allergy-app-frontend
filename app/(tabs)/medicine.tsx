@@ -1,5 +1,8 @@
+// app/(tabs)/medicine.tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, Button, FlatList } from "react-native";
+import { FlatList, Text, TouchableOpacity, View } from "react-native";
+import ScreenContainer from "@/components/ui/ScreenContainer";
+import { Ionicons } from "@expo/vector-icons";
 
 type Medicine = {
   id: number;
@@ -16,49 +19,55 @@ export default function MedicineScreen() {
   }, []);
 
   const fetchMedicines = async () => {
-    try {
-      const res = await fetch("");
-      const data = await res.json();
-      setMedicines(data || []);
-    } catch (error) {
-      console.error(error);
-    }
+    // fetch from your backend or mock
+    setMedicines([
+      { id: 1, name: "EpiPen", dosage: "0.3mg", expirationDate: "2025-12-31" },
+    ]);
   };
 
   const addMedicine = async () => {
+    // mock add
     const newMed = {
-      name: "EpiPen",
-      dosage: "0.3mg",
-      expirationDate: "2025-12-31",
+      id: Date.now(),
+      name: "Benadryl",
+      dosage: "25mg",
+      expirationDate: "2024-06-01",
     };
-    try {
-      await fetch("", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newMed),
-      });
-      fetchMedicines();
-    } catch (error) {
-      console.error(error);
-    }
+    setMedicines((prev) => [...prev, newMed]);
   };
 
   return (
-    <View className="flex-1 bg-white p-4">
-      <Text className="text-lg font-bold mb-2">My Medicines</Text>
-      <Button title="Add Medicine (Mock)" onPress={addMedicine} />
+    <ScreenContainer>
+      <View className="flex-row justify-between items-center mb-4">
+        <Text className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          My Medicines
+        </Text>
+        <TouchableOpacity
+          onPress={addMedicine}
+          className="flex-row items-center bg-blue-600 px-3 py-2 rounded-md shadow"
+        >
+          <Ionicons name="add" size={20} color="#fff" />
+          <Text className="ml-1 text-white font-semibold">Add</Text>
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         data={medicines}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
-          <View className="border-b border-gray-200 py-2">
-            <Text className="font-semibold">{item.name}</Text>
-            <Text>Dosage: {item.dosage}</Text>
-            <Text>Expires: {item.expirationDate}</Text>
+          <View className="mb-3 bg-white dark:bg-gray-800 rounded-md p-4 shadow-sm">
+            <Text className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {item.name}
+            </Text>
+            <Text className="text-gray-800 dark:text-gray-200">
+              Dosage: {item.dosage}
+            </Text>
+            <Text className="text-gray-600 dark:text-gray-400">
+              Expires: {item.expirationDate}
+            </Text>
           </View>
         )}
       />
-    </View>
+    </ScreenContainer>
   );
 }
