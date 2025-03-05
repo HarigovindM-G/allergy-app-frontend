@@ -1,8 +1,7 @@
 // app/(tabs)/medicine.tsx
 import React, { useEffect, useState } from "react";
-import { FlatList, Text, TouchableOpacity, View } from "react-native";
-import ScreenContainer from "@/components/ui/ScreenContainer";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Text, Button, FlatList, TextInput, StyleSheet, ScrollView } from "react-native";
+
 
 type Medicine = {
   id: number;
@@ -13,61 +12,93 @@ type Medicine = {
 
 export default function MedicineScreen() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [name, setName] = useState("");
+  const [dosage, setDosage] = useState("");
+  const [expirationDate, setExpirationDate] = useState("");
 
   useEffect(() => {
     fetchMedicines();
   }, []);
 
   const fetchMedicines = async () => {
-    // fetch from your backend or mock
-    setMedicines([
-      { id: 1, name: "EpiPen", dosage: "0.3mg", expirationDate: "2025-12-31" },
-    ]);
+    try {
+      const res = await fetch("YOUR_BACKEND_API_URL/medicines");
+      const data = await res.json();
+      setMedicines(data || []);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const addMedicine = async () => {
-    // mock add
-    const newMed = {
-      id: Date.now(),
-      name: "Benadryl",
-      dosage: "25mg",
-      expirationDate: "2024-06-01",
-    };
-    setMedicines((prev) => [...prev, newMed]);
+    if (!name || !dosage) return alert("Please enter all fields");
+
+    const newMed = { name, dosage, expirationDate };
+
+    try {
+      const res = await fetch("YOUR_BACKEND_API_URL/medicines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newMed),
+      });
+
+      if (res.ok) {
+        fetchMedicines(); // Refresh list after adding
+        setName("");
+        setDosage("");
+        setExpirationDate(""); // Clear inputs
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
-    <ScreenContainer>
-      <View className="flex-row justify-between items-center mb-4">
-        <Text className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          My Medicines
-        </Text>
-        <TouchableOpacity
-          onPress={addMedicine}
-          className="flex-row items-center bg-blue-600 px-3 py-2 rounded-md shadow"
-        >
-          <Ionicons name="add" size={20} color="#fff" />
-          <Text className="ml-1 text-white font-semibold">Add</Text>
-        </TouchableOpacity>
-      </View>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Medicine List</Text>
 
+
+
+      {/* Input Fields at the Top */}
+      <TextInput style={styles.input} placeholder="Medicine Name" value={name} onChangeText={setName} />
+      <TextInput style={styles.input} placeholder="Dosage" value={dosage} onChangeText={setDosage} />
+      <TextInput style={styles.input} placeholder="Expiration Date" value={expirationDate} onChangeText={setExpirationDate} />
+      <Button title="Add Medicine" onPress={addMedicine} />
+
+      {/* Medicine List Below */}
       <FlatList
         data={medicines}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <View className="mb-3 bg-white dark:bg-gray-800 rounded-md p-4 shadow-sm">
-            <Text className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {item.name}
-            </Text>
-            <Text className="text-gray-800 dark:text-gray-200">
-              Dosage: {item.dosage}
-            </Text>
-            <Text className="text-gray-600 dark:text-gray-400">
-              Expires: {item.expirationDate}
-            </Text>
-          </View>
+          <Text style={styles.medicineItem}>{item.name} - {item.dosage} ({item.expirationDate})</Text>
         )}
       />
-    </ScreenContainer>
+    </ScrollView>
+
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+    backgroundColor: "white",
+    flex: 1,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 8,
+    marginVertical: 5,
+    borderRadius: 5,
+    backgroundColor: "#fff",
+  },
+  medicineItem: {
+    fontSize: 16,
+    paddingVertical: 5,
+  },
+});
