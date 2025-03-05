@@ -95,9 +95,8 @@ export default function ScanScreen() {
         } as any);
       }
 
-      const res = await fetch("http://127.0.0.1:8000/ocr", {
+      const res = await fetch("http://192.168.1.71:8000/ocr", {
         method: "POST",
-        // Don't set "Content-Type": "multipart/form-data" yourself
         body: formData,
       });
 
