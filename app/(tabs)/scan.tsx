@@ -16,106 +16,110 @@ import { Link } from "expo-router";
 export default function ScanScreen() {
   const [pickedImage, setPickedImage] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string>("");
+  const [allergenResults, setAllergenResults] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const requestCameraPermission = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      alert("Camera access is required to take a picture.");
-      return false;
-    }
-    return true;
+    return status === "granted";
   };
 
   const requestLibraryPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      alert("Photo library access is required to pick an image.");
-      return false;
-    }
-    return true;
+    return status === "granted";
   };
 
   // Take photo
   const takePhotoHandler = async () => {
-    const hasPermission = await requestCameraPermission();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      // aspect: [4, 3],
-      quality: 1,
-    });
-
+    const granted = await requestCameraPermission();
+    if (!granted) {
+      alert("Camera permission is required.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 1 });
     if (!result.canceled) {
       setPickedImage(result.assets[0].uri);
       setExtractedText("");
+      setAllergenResults(null);
     }
   };
 
   // Pick from gallery
   const pickImageHandler = async () => {
-    const hasPermission = await requestLibraryPermission();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      // aspect: [4, 3],
-      quality: 1,
-    });
-
+    const granted = await requestLibraryPermission();
+    if (!granted) {
+      alert("Photo library permission is required.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 1 });
     if (!result.canceled) {
       setPickedImage(result.assets[0].uri);
       setExtractedText("");
+      setAllergenResults(null);
     }
   };
 
-  // Upload to FastAPI OCR endpoint
   const runOcr = async () => {
     if (!pickedImage) return;
-    setExtractedText("");
     setIsProcessing(true);
+    setExtractedText("");
+    setAllergenResults(null);
 
     try {
-      // Build form data
-      const fileName = `image_${Date.now()}.jpg`;
-      const formData = new FormData();
+      // 1) First, upload image to /ocr
+      const ocrText = await uploadImageAndGetText(pickedImage);
+      setExtractedText(ocrText);
 
-      if (Platform.OS === "web") {
-        // ---- WEB: Convert blob URL to actual File
-        const blob = await fetch(pickedImage).then((r) => r.blob());
-        const file = new File([blob], fileName, { type: "image/jpeg" });
-        formData.append("file", file);
-      } else {
-        // ---- iOS/Android
-        formData.append("file", {
-          uri: pickedImage,
-          name: fileName,
-          type: "image/jpeg",
-        } as any);
-      }
+      // 2) Then, send that text to /allergens/detect
+      const allergensData = await detectAllergens(ocrText);
+      setAllergenResults(allergensData);
 
-      const res = await fetch("http://192.168.1.71:8000/ocr", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Error response:", errorText);
-        throw new Error(`Server error: ${res.status} - ${errorText}`);
-      }
-
-      const data = await res.json();
-      setExtractedText(data.text || "No text detected");
     } catch (error) {
-      console.error("OCR error:", error);
-      alert(
-        error instanceof Error ? `OCR Failed: ${error.message}` : "OCR Failed"
-      );
+      console.error("Error in OCR/Allergen detection:", error);
+      alert(String(error));
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Helper: Upload to /ocr
+  const uploadImageAndGetText = async (imageUri: string) => {
+    const fileName = `image_${Date.now()}.jpg`;
+    const formData = new FormData();
+
+    if (Platform.OS === "web") {
+      const blob = await fetch(imageUri).then((r) => r.blob());
+      const file = new File([blob], fileName, { type: "image/jpeg" });
+      formData.append("file", file);
+    } else {
+      formData.append("file", { uri: imageUri, name: fileName, type: "image/jpeg" } as any);
+    }
+
+    const res = await fetch("http://192.168.1.71:8000/ocr", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`OCR failed: ${res.status} - ${errorText}`);
+    }
+    const data = await res.json();
+    return data.text || "";
+  };
+
+  // Helper: Call /allergens/detect
+  const detectAllergens = async (text: string) => {
+    const res = await fetch("http://192.168.1.71:8000/allergens/detect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Allergen detection failed: ${res.status} - ${errorText}`);
+    }
+    return await res.json();
   };
 
   return (
@@ -137,9 +141,7 @@ export default function ScanScreen() {
       {!pickedImage && (
         <View className="rounded-xl bg-gray-200 dark:bg-gray-700 p-6 items-center mb-4">
           <Ionicons name="image-outline" size={48} color="#888" />
-          <Text className="text-gray-500 dark:text-gray-400 mt-2">
-            No image selected
-          </Text>
+          <Text className="text-gray-500 dark:text-gray-400 mt-2">No image selected</Text>
         </View>
       )}
 
@@ -181,21 +183,43 @@ export default function ScanScreen() {
         </View>
       )}
 
+      {/* Show the extracted text, if any */}
       {extractedText ? (
         <View className="mt-4 rounded-md bg-gray-100 dark:bg-gray-800 p-4">
           <Text className="text-gray-800 dark:text-gray-100 font-medium mb-1">
             Extracted Text:
           </Text>
-          <Text className="font-semibold text-gray-900 dark:text-gray-200">
+          <Text className="font-semibold text-gray-900 dark:text-gray-200 mb-2">
             {extractedText}
           </Text>
 
+          {/* If we also have allergen results, show them */}
+          {allergenResults && allergenResults.allergens && allergenResults.allergens.length > 0 ? (
+            <View>
+              <Text className="text-gray-800 dark:text-gray-100 font-medium mb-1">
+                Detected Allergens:
+              </Text>
+              {allergenResults.allergens.map((item: any, idx: number) => (
+                <Text key={idx} className="text-red-500">
+                  {item.allergen} (Confidence: {item.confidence.toFixed(2)})
+                </Text>
+              ))}
+            </View>
+          ) : (
+            <Text className="text-gray-500 dark:text-gray-400">
+              No allergens detected
+            </Text>
+          )}
+
+          {/* Or link to a separate results screen if you want */}
+          {/* 
           <Link
             href={{ pathname: "/(tabs)/results", params: { text: extractedText } }}
             className="text-blue-600 dark:text-blue-400 mt-3"
           >
-            View Allergen Results →
+            View Detailed Results →
           </Link>
+          */}
         </View>
       ) : null}
     </ScreenContainer>
