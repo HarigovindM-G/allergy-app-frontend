@@ -1,5 +1,7 @@
+// app/(tabs)/medicine.tsx
 import React, { useEffect, useState } from "react";
 import { View, Text, Button, FlatList, TextInput, StyleSheet, ScrollView } from "react-native";
+
 
 type Medicine = {
   id: number;
@@ -55,6 +57,8 @@ export default function MedicineScreen() {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Medicine List</Text>
 
+
+
       {/* Input Fields at the Top */}
       <TextInput style={styles.input} placeholder="Medicine Name" value={name} onChangeText={setName} />
       <TextInput style={styles.input} placeholder="Dosage" value={dosage} onChangeText={setDosage} />
@@ -70,6 +74,7 @@ export default function MedicineScreen() {
         )}
       />
     </ScrollView>
+
   );
 }
 

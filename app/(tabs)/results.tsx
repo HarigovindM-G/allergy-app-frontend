@@ -1,7 +1,8 @@
+// app/(tabs)/results.tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
+import ScreenContainer from "@/components/ui/ScreenContainer";
 import { useLocalSearchParams } from "expo-router";
-
 
 export default function ResultsScreen() {
   const { text } = useLocalSearchParams();
@@ -17,13 +18,9 @@ export default function ResultsScreen() {
   const detectAllergens = async (inputText: string) => {
     setLoading(true);
     try {
-      const response = await fetch("", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: inputText }),
-      });
-      const data = await response.json();
-      setAllergens(data.allergens || []);
+      // fetch from your backend
+      // mock response
+      setAllergens(["Milk", "Soy"]);
     } catch (error) {
       console.error(error);
     } finally {
@@ -32,27 +29,38 @@ export default function ResultsScreen() {
   };
 
   return (
-    <View className="flex-1 items-center justify-center bg-white p-4">
-      <Text className="text-xl font-bold">Allergen Results</Text>
+    <ScreenContainer>
+      <Text className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+        Allergen Results
+      </Text>
+
       {!text && (
-        <Text className="mt-2 text-red-500">
-          No text provided.
-        </Text>
+        <Text className="text-red-500">No text provided.</Text>
       )}
+
       {loading && <ActivityIndicator size="large" />}
+
       {!loading && allergens.length > 0 && (
-        <View>
-          <Text className="mt-4 text-lg font-semibold">Detected:</Text>
+        <View className="mt-4 space-y-2">
           {allergens.map((item, idx) => (
-            <Text key={idx} className="mt-1">
-              • {item}
-            </Text>
+            <View
+              key={idx}
+              className="flex-row items-center bg-white dark:bg-gray-800 rounded-md p-3 shadow-sm"
+            >
+              <View className="w-2 h-2 rounded-full bg-red-500 mr-2" />
+              <Text className="text-gray-900 dark:text-gray-100">
+                {item}
+              </Text>
+            </View>
           ))}
         </View>
       )}
+
       {!loading && allergens.length === 0 && text && (
-        <Text className="mt-4">No allergens detected.</Text>
+        <Text className="mt-4 text-gray-600 dark:text-gray-400">
+          No allergens detected.
+        </Text>
       )}
-    </View>
+    </ScreenContainer>
   );
 }
