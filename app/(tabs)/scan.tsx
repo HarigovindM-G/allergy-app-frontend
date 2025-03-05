@@ -6,19 +6,18 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import ScreenContainer from "@/components/ui/ScreenContainer";
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
-import Tesseract from "tesseract.js";
 
 export default function ScanScreen() {
   const [pickedImage, setPickedImage] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  // Request permission for camera usage
   const requestCameraPermission = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
@@ -28,7 +27,6 @@ export default function ScanScreen() {
     return true;
   };
 
-  // Request permission for media library usage
   const requestLibraryPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -38,14 +36,14 @@ export default function ScanScreen() {
     return true;
   };
 
-  // Take photo via camera
+  // Take photo
   const takePhotoHandler = async () => {
     const hasPermission = await requestCameraPermission();
     if (!hasPermission) return;
 
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true, // basic square-ish crop UI
-      aspect: [4, 3],      // optional, specify aspect ratio (width, height)
+      allowsEditing: true,
+      aspect: [4, 3],
       quality: 1,
     });
 
@@ -55,14 +53,14 @@ export default function ScanScreen() {
     }
   };
 
-  // Pick image from gallery
+  // Pick from gallery
   const pickImageHandler = async () => {
     const hasPermission = await requestLibraryPermission();
     if (!hasPermission) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true, // basic cropping
-      aspect: [4, 3],      // optional aspect ratio
+      allowsEditing: true,
+      aspect: [4, 3],
       quality: 1,
     });
 
@@ -72,20 +70,50 @@ export default function ScanScreen() {
     }
   };
 
-  // Run OCR (using Tesseract.js in JS)
+  // Upload to FastAPI OCR endpoint
   const runOcr = async () => {
     if (!pickedImage) return;
     setExtractedText("");
     setIsProcessing(true);
 
     try {
-      // Tesseract.js usage:
-      const {
-        data: { text },
-      } = await Tesseract.recognize(pickedImage, "eng");
-      setExtractedText(text.trim());
+      // Build form data
+      const fileName = `image_${Date.now()}.jpg`;
+      const formData = new FormData();
+
+      if (Platform.OS === "web") {
+        // ---- WEB: Convert blob URL to actual File
+        const blob = await fetch(pickedImage).then((r) => r.blob());
+        const file = new File([blob], fileName, { type: "image/jpeg" });
+        formData.append("file", file);
+      } else {
+        // ---- iOS/Android
+        formData.append("file", {
+          uri: pickedImage,
+          name: fileName,
+          type: "image/jpeg",
+        } as any);
+      }
+
+      const res = await fetch("http://127.0.0.1:8000/ocr", {
+        method: "POST",
+        // Don't set "Content-Type": "multipart/form-data" yourself
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Error response:", errorText);
+        throw new Error(`Server error: ${res.status} - ${errorText}`);
+      }
+
+      const data = await res.json();
+      setExtractedText(data.text || "No text detected");
     } catch (error) {
       console.error("OCR error:", error);
+      alert(
+        error instanceof Error ? `OCR Failed: ${error.message}` : "OCR Failed"
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -116,7 +144,6 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {/* Camera & Gallery Buttons */}
       <View className="flex-row space-x-2">
         <TouchableOpacity
           onPress={takePhotoHandler}
@@ -135,7 +162,6 @@ export default function ScanScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Run OCR Button */}
       <TouchableOpacity
         onPress={runOcr}
         disabled={!pickedImage || isProcessing}
@@ -149,7 +175,6 @@ export default function ScanScreen() {
         </Text>
       </TouchableOpacity>
 
-      {/* OCR Loading Indicator */}
       {isProcessing && (
         <View className="mt-4 flex-row items-center space-x-2">
           <ActivityIndicator size="small" color="#555" />
@@ -157,7 +182,6 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {/* Extracted Text Preview */}
       {extractedText ? (
         <View className="mt-4 rounded-md bg-gray-100 dark:bg-gray-800 p-4">
           <Text className="text-gray-800 dark:text-gray-100 font-medium mb-1">
@@ -167,7 +191,6 @@ export default function ScanScreen() {
             {extractedText}
           </Text>
 
-          {/* Link to Allergen Results */}
           <Link
             href={{ pathname: "/(tabs)/results", params: { text: extractedText } }}
             className="text-blue-600 dark:text-blue-400 mt-3"
