@@ -11,13 +11,13 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import ScreenContainer from "@/components/ui/ScreenContainer";
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 
 export default function ScanScreen() {
   const [pickedImage, setPickedImage] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string>("");
-  const [allergenResults, setAllergenResults] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const router = useRouter();
 
   const requestCameraPermission = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -40,7 +40,6 @@ export default function ScanScreen() {
     if (!result.canceled) {
       setPickedImage(result.assets[0].uri);
       setExtractedText("");
-      setAllergenResults(null);
     }
   };
 
@@ -55,7 +54,6 @@ export default function ScanScreen() {
     if (!result.canceled) {
       setPickedImage(result.assets[0].uri);
       setExtractedText("");
-      setAllergenResults(null);
     }
   };
 
@@ -63,19 +61,13 @@ export default function ScanScreen() {
     if (!pickedImage) return;
     setIsProcessing(true);
     setExtractedText("");
-    setAllergenResults(null);
 
     try {
-      // 1) First, upload image to /ocr
+      // Upload image to /ocr endpoint
       const ocrText = await uploadImageAndGetText(pickedImage);
       setExtractedText(ocrText);
-
-      // 2) Then, send that text to /allergens/detect
-      const allergensData = await detectAllergens(ocrText);
-      setAllergenResults(allergensData);
-
     } catch (error) {
-      console.error("Error in OCR/Allergen detection:", error);
+      console.error("Error in OCR:", error);
       alert(String(error));
     } finally {
       setIsProcessing(false);
@@ -95,7 +87,7 @@ export default function ScanScreen() {
       formData.append("file", { uri: imageUri, name: fileName, type: "image/jpeg" } as any);
     }
 
-    const res = await fetch("http://192.168.1.71:8000/ocr", {
+    const res = await fetch("http://192.168.1.72:8000/ocr", {
       method: "POST",
       body: formData,
     });
@@ -106,20 +98,6 @@ export default function ScanScreen() {
     }
     const data = await res.json();
     return data.text || "";
-  };
-
-  // Helper: Call /allergens/detect
-  const detectAllergens = async (text: string) => {
-    const res = await fetch("http://192.168.1.71:8000/allergens/detect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Allergen detection failed: ${res.status} - ${errorText}`);
-    }
-    return await res.json();
   };
 
   return (
@@ -141,7 +119,9 @@ export default function ScanScreen() {
       {!pickedImage && (
         <View className="rounded-xl bg-gray-200 dark:bg-gray-700 p-6 items-center mb-4">
           <Ionicons name="image-outline" size={48} color="#888" />
-          <Text className="text-gray-500 dark:text-gray-400 mt-2">No image selected</Text>
+          <Text className="text-gray-500 dark:text-gray-400 mt-2">
+            No image selected
+          </Text>
         </View>
       )}
 
@@ -183,7 +163,6 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {/* Show the extracted text, if any */}
       {extractedText ? (
         <View className="mt-4 rounded-md bg-gray-100 dark:bg-gray-800 p-4">
           <Text className="text-gray-800 dark:text-gray-100 font-medium mb-1">
@@ -193,33 +172,15 @@ export default function ScanScreen() {
             {extractedText}
           </Text>
 
-          {/* If we also have allergen results, show them */}
-          {allergenResults && allergenResults.allergens && allergenResults.allergens.length > 0 ? (
-            <View>
-              <Text className="text-gray-800 dark:text-gray-100 font-medium mb-1">
-                Detected Allergens:
-              </Text>
-              {allergenResults.allergens.map((item: any, idx: number) => (
-                <Text key={idx} className="text-red-500">
-                  {item.allergen} (Confidence: {item.confidence.toFixed(2)})
-                </Text>
-              ))}
-            </View>
-          ) : (
-            <Text className="text-gray-500 dark:text-gray-400">
-              No allergens detected
-            </Text>
-          )}
-
-          {/* Or link to a separate results screen if you want */}
-          {/* 
-          <Link
-            href={{ pathname: "/(tabs)/results", params: { text: extractedText } }}
-            className="text-blue-600 dark:text-blue-400 mt-3"
+          {/* Button to go to the Results tab */}
+          <TouchableOpacity
+            onPress={() =>
+              router.push({ pathname: "/(tabs)/results", params: { text: extractedText } })
+            }
+            className="bg-blue-600 rounded-md py-3 px-4 shadow"
           >
-            View Detailed Results →
-          </Link>
-          */}
+            <Text className="text-white font-semibold">Go to Results</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
     </ScreenContainer>
