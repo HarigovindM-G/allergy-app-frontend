@@ -2,6 +2,7 @@ import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { useRouter } from "expo-router";
 
 // If you followed the previous advice and created a reusable
@@ -21,12 +22,14 @@ export default function HomeScreen() {
   return (
     <ScreenContainer>
       {/* Big icon for a visual brand accent */}
-      <Ionicons
+      {/* <Ionicons
         name="leaf-outline"
         size={64}
         color="#2563eb"
         style={{ alignSelf: "center", marginBottom: 16 }}
-      />
+      /> */}
+      <FontAwesome5 name="syringe" size={70} color="#2563eb"
+        style={{ alignSelf: "center", marginBottom: 24, marginTop:24 }} />
 
       {/* Main heading */}
       <Text className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 text-center">
