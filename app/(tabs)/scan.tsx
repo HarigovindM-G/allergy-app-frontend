@@ -7,9 +7,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  Dimensions,
+  StyleSheet,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import ScreenContainer from "@/components/ui/ScreenContainer";
+import Card from "@/components/ui/Card";
 import { Ionicons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
 import { API_URL } from '@/constants/Config';
@@ -19,6 +22,9 @@ export default function ScanScreen() {
   const [extractedText, setExtractedText] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const router = useRouter();
+  const isIOS = Platform.OS === 'ios';
+  const screenWidth = Dimensions.get('window').width;
+  const imageHeight = Math.min(screenWidth * 0.6, 250); // Responsive image height
 
   const requestCameraPermission = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -101,88 +107,146 @@ export default function ScanScreen() {
     return data.text || "";
   };
 
+  // Button to analyze results
+  const AnalyzeButton = () => (
+    <TouchableOpacity
+      onPress={() => router.push({ pathname: "/(tabs)/results", params: { text: extractedText } })}
+      className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl py-3 shadow-md"
+    >
+      <View className="flex-row items-center justify-center">
+        <Ionicons name="search-outline" size={18} color="#fff" />
+        <Text className="text-white font-semibold ml-2">
+          Analyze for Allergens
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <ScreenContainer>
-      <Text className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-        Scan Product Label
-      </Text>
+      {/* Header */}
+      <View className="mb-6">
+        <Text className="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center">
+          Scan Product Label
+        </Text>
+        <Text className="text-center text-gray-600 dark:text-gray-400 mt-1">
+          Capture or select a product label to detect allergens
+        </Text>
+      </View>
 
-      {pickedImage && (
-        <View className="rounded-xl bg-white dark:bg-gray-800 shadow-md p-4 mb-4">
-          <Image
-            source={{ uri: pickedImage }}
-            style={{ width: "100%", height: 200, borderRadius: 8 }}
-            resizeMode="cover"
+      {/* Image Preview Area */}
+      <Card 
+        variant="outlined"
+        style={{ marginBottom: 20 }}
+      >
+        {pickedImage ? (
+          <View>
+            <Image
+              source={{ uri: pickedImage }}
+              style={{ 
+                width: "100%", 
+                height: imageHeight, 
+                borderRadius: 12 
+              }}
+              resizeMode="cover"
+            />
+            <View className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-30 py-2 px-3">
+              <Text className="text-white text-sm font-medium">
+                Image ready for scanning
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 items-center justify-center" style={{ height: imageHeight }}>
+            <View className="bg-blue-100 dark:bg-blue-900 rounded-full p-4 mb-3">
+              <Ionicons name="image-outline" size={40} color="#3b82f6" />
+            </View>
+            <Text className="text-gray-600 dark:text-gray-300 text-center font-medium">
+              No image selected
+            </Text>
+            <Text className="text-gray-500 dark:text-gray-400 text-center text-sm mt-1">
+              Take a photo or select from gallery
+            </Text>
+          </View>
+        )}
+      </Card>
+
+      {/* Action Buttons */}
+      <View className="space-y-3 mb-6">
+        <View className="flex-row space-x-3">
+          <TouchableOpacity
+            onPress={takePhotoHandler}
+            className="flex-1 bg-blue-600 rounded-xl py-3 shadow-md"
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="camera-outline" size={20} color="#fff" />
+              <Text className="text-white font-semibold ml-2">Take Photo</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={pickImageHandler}
+            className="flex-1 bg-blue-500 rounded-xl py-3 shadow-md"
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="images-outline" size={20} color="#fff" />
+              <Text className="text-white font-semibold ml-2">Gallery</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          onPress={runOcr}
+          disabled={!pickedImage || isProcessing}
+          className={`flex-row items-center justify-center rounded-xl py-3 shadow-md ${
+            pickedImage && !isProcessing 
+              ? "bg-gradient-to-r from-green-500 to-green-600" 
+              : "bg-gray-300 dark:bg-gray-700"
+          }`}
+        >
+          <Ionicons 
+            name="scan-outline" 
+            size={20} 
+            color={pickedImage && !isProcessing ? "#fff" : "#9ca3af"} 
           />
-        </View>
-      )}
-
-      {!pickedImage && (
-        <View className="rounded-xl bg-gray-200 dark:bg-gray-700 p-6 items-center mb-4">
-          <Ionicons name="image-outline" size={48} color="#888" />
-          <Text className="text-gray-500 dark:text-gray-400 mt-2">
-            No image selected
+          <Text 
+            className={`font-semibold ml-2 ${
+              pickedImage && !isProcessing 
+                ? "text-white" 
+                : "text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            {isProcessing ? "Processing..." : "Scan Label"}
           </Text>
-        </View>
-      )}
-
-      <View className="flex-row space-x-2">
-        <TouchableOpacity
-          onPress={takePhotoHandler}
-          className="flex-1 flex-row items-center justify-center bg-blue-600 rounded-md py-3 shadow"
-        >
-          <Ionicons name="camera-outline" size={20} color="#fff" />
-          <Text className="text-white font-semibold ml-2">Take Photo</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={pickImageHandler}
-          className="flex-1 flex-row items-center justify-center bg-blue-600 rounded-md py-3 shadow"
-        >
-          <Ionicons name="images-outline" size={20} color="#fff" />
-          <Text className="text-white font-semibold ml-2">Pick Image</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        onPress={runOcr}
-        disabled={!pickedImage || isProcessing}
-        className={`mt-4 flex-row items-center justify-center 
-          ${pickedImage && !isProcessing ? "bg-green-600" : "bg-gray-400"} 
-          rounded-md py-3 shadow`}
-      >
-        <Ionicons name="scan-outline" size={20} color="#fff" />
-        <Text className="text-white font-semibold ml-2">
-          {isProcessing ? "Processing..." : "Run OCR"}
-        </Text>
-      </TouchableOpacity>
-
+      {/* Processing Indicator */}
       {isProcessing && (
-        <View className="mt-4 flex-row items-center space-x-2">
-          <ActivityIndicator size="small" color="#555" />
-          <Text className="text-gray-500 dark:text-gray-400">Reading text...</Text>
-        </View>
+        <Card variant="outlined" style={{ marginBottom: 20 }}>
+          <View className="flex-row items-center justify-center space-x-3">
+            <ActivityIndicator size="small" color="#3b82f6" />
+            <Text className="text-blue-700 dark:text-blue-300 font-medium">
+              Reading text from image...
+            </Text>
+          </View>
+        </Card>
       )}
 
+      {/* Extracted Text Result */}
       {extractedText ? (
-        <View className="mt-4 rounded-md bg-gray-100 dark:bg-gray-800 p-4">
-          <Text className="text-gray-800 dark:text-gray-100 font-medium mb-1">
-            Extracted Text:
-          </Text>
-          <Text className="font-semibold text-gray-900 dark:text-gray-200 mb-2">
-            {extractedText}
-          </Text>
-
-          {/* Button to go to the Results tab */}
-          <TouchableOpacity
-            onPress={() =>
-              router.push({ pathname: "/(tabs)/results", params: { text: extractedText } })
-            }
-            className="bg-blue-600 rounded-md py-3 px-4 shadow"
-          >
-            <Text className="text-white font-semibold">Go to Results</Text>
-          </TouchableOpacity>
-        </View>
+        <Card 
+          title="Extracted Text" 
+          icon="document-text-outline"
+          variant="elevated"
+          footer={<AnalyzeButton />}
+        >
+          <View className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <Text className="text-gray-800 dark:text-gray-200">
+              {extractedText}
+            </Text>
+          </View>
+        </Card>
       ) : null}
     </ScreenContainer>
   );
