@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import ScreenContainer from "@/components/ui/ScreenContainer";
 import { useLocalSearchParams } from "expo-router";
+import { API_URL } from '@/constants/Config';
 
 export default function ResultsScreen() {
   const { text } = useLocalSearchParams();
@@ -18,7 +19,7 @@ export default function ResultsScreen() {
   const detectAllergens = async (inputText: string) => {
     setLoading(true);
     try {
-      const res = await fetch("http://192.168.1.72:8000/allergens/detect", {
+      const res = await fetch(`${API_URL}/allergens/detect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: inputText }),

@@ -12,6 +12,7 @@ import * as ImagePicker from "expo-image-picker";
 import ScreenContainer from "@/components/ui/ScreenContainer";
 import { Ionicons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
+import { API_URL } from '@/constants/Config';
 
 export default function ScanScreen() {
   const [pickedImage, setPickedImage] = useState<string | null>(null);
@@ -87,7 +88,7 @@ export default function ScanScreen() {
       formData.append("file", { uri: imageUri, name: fileName, type: "image/jpeg" } as any);
     }
 
-    const res = await fetch("http://192.168.1.72:8000/ocr", {
+    const res = await fetch(`${API_URL}/ocr`, {
       method: "POST",
       body: formData,
     });

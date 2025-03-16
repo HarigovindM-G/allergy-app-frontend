@@ -1,19 +1,33 @@
 // app/(tabs)/_layout.tsx
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { Stack } from "expo-router";
 import { useColorScheme } from "react-native";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function TabLayout() {
-  
+  const { logout } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  
   return (
     <Tabs
     screenOptions={{
       headerStyle: { backgroundColor: isDark ? "#0f172a" : "#fff" },
       headerTintColor: isDark ? "#fff" : "#000",
+      headerRight: () => (
+        <TouchableOpacity 
+          onPress={logout} 
+          style={{ marginRight: 15 }}
+        >
+          <Ionicons 
+            name="log-out-outline" 
+            size={24} 
+            color={isDark ? "#fff" : "#000"} 
+          />
+        </TouchableOpacity>
+      ),
     }}
     >
       <Tabs.Screen

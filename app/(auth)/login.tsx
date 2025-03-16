@@ -1,35 +1,34 @@
 // app/(auth)/login.tsx
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleLogin = async () => {
-    try {
-      // Example call to your backend's /login endpoint
-      const response = await fetch("https://YOUR_BACKEND_URL/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (response.ok) {
-        const data = await response.json(); // e.g. { token: 'JWT' }
-        // Store token in AsyncStorage
-        await AsyncStorage.setItem("token", data.token);
+    if (!username || !password) {
+      Alert.alert("Error", "Please enter both username/email and password");
+      return;
+    }
 
-        // Navigate to main app
-        router.replace("/(tabs)");
-      } else {
-        // handle error (invalid credentials, etc.)
-        console.warn("Login failed");
+    setIsLoading(true);
+    try {
+      const success = await login(username, password);
+      
+      if (!success) {
+        Alert.alert("Login Failed", "Invalid username or password");
       }
     } catch (error) {
       console.error("Login error:", error);
+      Alert.alert("Error", "An error occurred during login");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -37,13 +36,14 @@ export default function LoginScreen() {
     <View className="flex-1 bg-white items-center justify-center p-4">
       <Text className="text-2xl font-bold mb-4">Login</Text>
       <TextInput
-        className="w-full border rounded px-2 py-1 mb-2"
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
+        className="w-full border rounded px-4 py-2 mb-4"
+        placeholder="Username or Email"
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
       />
       <TextInput
-        className="w-full border rounded px-2 py-1 mb-2"
+        className="w-full border rounded px-4 py-2 mb-4"
         placeholder="Password"
         secureTextEntry
         value={password}
@@ -51,17 +51,22 @@ export default function LoginScreen() {
       />
 
       <TouchableOpacity
-        className="bg-blue-500 px-4 py-2 rounded mt-4"
+        className="bg-blue-500 w-full px-4 py-3 rounded mt-4 items-center"
         onPress={handleLogin}
+        disabled={isLoading}
       >
-        <Text className="text-white">Login</Text>
+        {isLoading ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Text className="text-white font-semibold">Login</Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity
-        className="mt-2"
+        className="mt-4"
         onPress={() => router.push("/(auth)/signup")}
       >
-        <Text className="text-blue-600">Go to Signup</Text>
+        <Text className="text-blue-600">Don't have an account? Sign Up</Text>
       </TouchableOpacity>
     </View>
   );

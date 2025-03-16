@@ -3,6 +3,7 @@ import { View, Text, TextInput, FlatList, TouchableOpacity } from "react-native"
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/ui/ScreenContainer";
+import { API_URL } from '@/constants/Config';
 
 // Medicine type definition
 type Medicine = {
@@ -25,7 +26,7 @@ export default function MedicineScreen() {
 
   const fetchMedicines = async () => {
     try {
-      const res = await fetch("YOUR_BACKEND_API_URL/medicines");
+      const res = await fetch(`${API_URL}/medicines`);
       const data = await res.json();
       setMedicines(data || []);
     } catch (error) {
@@ -39,7 +40,7 @@ export default function MedicineScreen() {
     const newMed = { name, dosage, expirationDate };
 
     try {
-      const res = await fetch("YOUR_BACKEND_API_URL/medicines", {
+      const res = await fetch(`${API_URL}/medicines`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newMed),
