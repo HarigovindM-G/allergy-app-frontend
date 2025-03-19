@@ -35,7 +35,7 @@ export default function HomeScreen() {
     },
     {
       title: "Emergency Info",
-      description: "Quick access to emergency contacts and procedures",
+      description: "Quick access to emergency contacts and information",
       icon: "alert-circle-outline" as const,
       route: "/(tabs)/emergency" as const,
       color: "#ef4444", // red
@@ -97,18 +97,18 @@ export default function HomeScreen() {
             style={{ width: '48%', marginBottom: 12 }}
             onPress={() => router.push(feature.route)}
           >
-            <Card variant="outlined">
-              <View className="items-center">
+            <Card variant="outlined" style={{ height: 135 }}>
+              <View className="items-center justify-between h-full py-2">
                 <View 
                   style={{ backgroundColor: `${feature.color}20` }} 
-                  className="rounded-full p-3 mb-2"
+                  className="rounded-full mb-2"
                 >
                   <Ionicons name={feature.icon} size={24} color={feature.color} />
                 </View>
                 <Text className="text-gray-900 dark:text-gray-100 font-bold text-center">
                   {feature.title}
                 </Text>
-                <Text className="text-gray-500 dark:text-gray-400 text-center text-xs mt-1">
+                <Text className="text-gray-500 dark:text-gray-400 text-center text-xs mt-1 px-1">
                   {feature.description}
                 </Text>
               </View>

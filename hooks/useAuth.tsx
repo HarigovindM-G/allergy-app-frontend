@@ -31,7 +31,19 @@ const secureStorage = {
     if (Platform.OS === 'web') {
       return await AsyncStorage.getItem(key);
     } else {
-      return await SecureStore.getItemAsync(key);
+      try {
+        // Try SecureStore first
+        const value = await SecureStore.getItemAsync(key);
+        if (value !== null) {
+          return value;
+        }
+        // If not found in SecureStore, check AsyncStorage as fallback
+        return await AsyncStorage.getItem(key);
+      } catch (error) {
+        console.error(`Error retrieving ${key} from secure storage:`, error);
+        // Fall back to AsyncStorage
+        return await AsyncStorage.getItem(key);
+      }
     }
   },
   
@@ -39,7 +51,17 @@ const secureStorage = {
     if (Platform.OS === 'web') {
       await AsyncStorage.setItem(key, value);
     } else {
-      await SecureStore.setItemAsync(key, value);
+      try {
+        // Store in both SecureStore and AsyncStorage for redundancy
+        await SecureStore.setItemAsync(key, value);
+        await AsyncStorage.setItem(key, value);
+        console.log(`[Auth] Stored ${key} in both SecureStore and AsyncStorage`);
+      } catch (error) {
+        console.error(`Error storing ${key} in secure storage:`, error);
+        // Fall back to AsyncStorage
+        await AsyncStorage.setItem(key, value);
+        console.log(`[Auth] Stored ${key} in AsyncStorage (fallback)`);
+      }
     }
   },
   
@@ -47,7 +69,15 @@ const secureStorage = {
     if (Platform.OS === 'web') {
       await AsyncStorage.removeItem(key);
     } else {
-      await SecureStore.deleteItemAsync(key);
+      try {
+        // Remove from both storages
+        await SecureStore.deleteItemAsync(key);
+        await AsyncStorage.removeItem(key);
+      } catch (error) {
+        console.error(`Error removing ${key} from secure storage:`, error);
+        // Make sure it's removed from AsyncStorage at least
+        await AsyncStorage.removeItem(key);
+      }
     }
   }
 };

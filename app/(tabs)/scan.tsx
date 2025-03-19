@@ -110,7 +110,13 @@ export default function ScanScreen() {
   // Button to analyze results
   const AnalyzeButton = () => (
     <TouchableOpacity
-      onPress={() => router.push({ pathname: "/(tabs)/results", params: { text: extractedText } })}
+      onPress={() => router.push({ 
+        pathname: "/(tabs)/results", 
+        params: { 
+          text: extractedText,
+          imageUri: pickedImage
+        } 
+      })}
       className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl py-3 shadow-md"
     >
       <View className="flex-row items-center justify-center">
@@ -137,7 +143,7 @@ export default function ScanScreen() {
       {/* Image Preview Area */}
       <Card 
         variant="outlined"
-        style={{ marginBottom: 20 }}
+        style={{ marginBottom: 24 }}
       >
         {pickedImage ? (
           <View>
@@ -157,11 +163,14 @@ export default function ScanScreen() {
             </View>
           </View>
         ) : (
-          <View className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 items-center justify-center" style={{ height: imageHeight }}>
-            <View className="bg-blue-100 dark:bg-blue-900 rounded-full p-4 mb-3">
-              <Ionicons name="image-outline" size={40} color="#3b82f6" />
+          <View 
+            className="items-center justify-center" 
+            style={{ height: imageHeight }}
+          >
+            <View className="bg-blue-100 dark:bg-blue-900 rounded-full p-4 mb-4">
+              <Ionicons name="image-outline" size={36} color="#3b82f6" />
             </View>
-            <Text className="text-gray-600 dark:text-gray-300 text-center font-medium">
+            <Text className="text-gray-700 dark:text-gray-200 text-center font-medium text-lg">
               No image selected
             </Text>
             <Text className="text-gray-500 dark:text-gray-400 text-center text-sm mt-1">
@@ -171,60 +180,79 @@ export default function ScanScreen() {
         )}
       </Card>
 
-      {/* Action Buttons */}
-      <View className="space-y-3 mb-6">
-        <View className="flex-row space-x-3">
-          <TouchableOpacity
-            onPress={takePhotoHandler}
-            className="flex-1 bg-blue-600 rounded-xl py-3 shadow-md"
-          >
-            <View className="flex-row items-center justify-center">
-              <Ionicons name="camera-outline" size={20} color="#fff" />
-              <Text className="text-white font-semibold ml-2">Take Photo</Text>
-            </View>
-          </TouchableOpacity>
+      {/* Action Buttons - Improved spacing and appearance */}
+      <View className="space-y-4 mb-6">
+        <TouchableOpacity
+          onPress={takePhotoHandler}
+          className="bg-blue-600 rounded-xl py-4 shadow-md mb-4"
+          style={{ 
+            shadowColor: '#3b82f6',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 3,
+          }}
+        >
+          <View className="flex-row items-center justify-center">
+            <Ionicons name="camera-outline" size={22} color="#fff" style={{ marginRight: 10 }} />
+            <Text className="text-white font-semibold">Take Photo</Text>
+          </View>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={pickImageHandler}
-            className="flex-1 bg-blue-500 rounded-xl py-3 shadow-md"
-          >
-            <View className="flex-row items-center justify-center">
-              <Ionicons name="images-outline" size={20} color="#fff" />
-              <Text className="text-white font-semibold ml-2">Gallery</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={pickImageHandler}
+          className="bg-blue-500 rounded-xl py-4 shadow-md mb-4"
+          style={{ 
+            shadowColor: '#3b82f6',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 3,
+          }}
+        >
+          <View className="flex-row items-center justify-center">
+            <Ionicons name="images-outline" size={22} color="#fff" style={{ marginRight: 10 }} />
+            <Text className="text-white font-semibold">Gallery</Text>
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={runOcr}
           disabled={!pickedImage || isProcessing}
-          className={`flex-row items-center justify-center rounded-xl py-3 shadow-md ${
+          className={`rounded-xl py-4 shadow-md ${
             pickedImage && !isProcessing 
-              ? "bg-gradient-to-r from-green-500 to-green-600" 
+              ? "bg-gray-700 dark:bg-gray-800" 
               : "bg-gray-300 dark:bg-gray-700"
           }`}
+          style={pickedImage && !isProcessing ? { 
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 3,
+          } : {}}
         >
-          <Ionicons 
-            name="scan-outline" 
-            size={20} 
-            color={pickedImage && !isProcessing ? "#fff" : "#9ca3af"} 
-          />
-          <Text 
-            className={`font-semibold ml-2 ${
-              pickedImage && !isProcessing 
-                ? "text-white" 
-                : "text-gray-500 dark:text-gray-400"
-            }`}
-          >
-            {isProcessing ? "Processing..." : "Scan Label"}
-          </Text>
+          <View className="flex-row items-center justify-center">
+            <Ionicons 
+              name="scan-outline" 
+              size={22} 
+              color={pickedImage && !isProcessing ? "#fff" : "#9ca3af"} 
+              style={{ marginRight: 10 }}
+            />
+            <Text 
+              className={`font-semibold ${
+                pickedImage && !isProcessing 
+                  ? "text-white" 
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              {isProcessing ? "Processing..." : "Scan Label"}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
       {/* Processing Indicator */}
       {isProcessing && (
         <Card variant="outlined" style={{ marginBottom: 20 }}>
-          <View className="flex-row items-center justify-center space-x-3">
+          <View className="flex-row items-center justify-center py-3 space-x-3">
             <ActivityIndicator size="small" color="#3b82f6" />
             <Text className="text-blue-700 dark:text-blue-300 font-medium">
               Reading text from image...
@@ -241,7 +269,7 @@ export default function ScanScreen() {
           variant="elevated"
           footer={<AnalyzeButton />}
         >
-          <View className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+          <View className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
             <Text className="text-gray-800 dark:text-gray-200">
               {extractedText}
             </Text>
