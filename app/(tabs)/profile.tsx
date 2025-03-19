@@ -217,7 +217,7 @@ export default function ProfileScreen() {
       } else {
         Alert.alert("Warning", result.message || "Allergies may not have been fully updated");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating allergies:", error);
       Alert.alert("Error", `Failed to update allergies: ${error.message || "Unknown error"}`);
     }
@@ -298,7 +298,7 @@ export default function ProfileScreen() {
       } else {
         Alert.alert("Warning", result.message || "Allergy may not have been fully added");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding allergy:", error);
       Alert.alert("Error", `Failed to add allergy: ${error.message || "Unknown error"}`);
     }
@@ -386,7 +386,7 @@ export default function ProfileScreen() {
   // Render allergies list
   const renderAllergyItem = ({ item }: { item: Allergy }) => (
     <TouchableOpacity
-      className="mb-2 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm"
+      className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700"
       onPress={() => {
         setSelectedAllergy(item);
         setSelectedSeverity(item.severity);
@@ -396,20 +396,36 @@ export default function ProfileScreen() {
     >
       <View className="flex-row justify-between items-center">
         <View className="flex-row items-center flex-1">
-          <Ionicons name="alert-circle" size={20} color="#ef4444" style={{ marginRight: 8 }} />
-          <Text className="text-gray-900 dark:text-gray-100 font-semibold">{item.name}</Text>
+          <View className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900 items-center justify-center mr-3">
+            <Ionicons name="alert-circle" size={22} color="#ef4444" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-gray-900 dark:text-gray-100 font-bold text-lg">{item.name}</Text>
+            <Text className="text-gray-500 dark:text-gray-400 text-sm">
+              {item.category || "Common allergen"}
+            </Text>
+          </View>
         </View>
-        {renderSeverityBadge(item.severity)}
-        <TouchableOpacity 
-          onPress={() => removeAllergy(item.id)}
-          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          className="ml-2"
-        >
-          <Ionicons name="close-circle" size={24} color="#ef4444" />
-        </TouchableOpacity>
+        
+        <View className="flex-row items-center">
+          {renderSeverityBadge(item.severity)}
+          <TouchableOpacity 
+            onPress={() => removeAllergy(item.id)}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            className="ml-3 bg-gray-100 dark:bg-gray-700 p-2 rounded-full"
+          >
+            <Ionicons name="close" size={18} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
       </View>
+      
       {item.notes && (
-        <Text className="text-gray-500 dark:text-gray-400 text-sm mt-1">{item.notes}</Text>
+        <View className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <Text className="text-gray-700 dark:text-gray-300 text-sm">
+            <Text className="font-medium">Notes: </Text>
+            {item.notes}
+          </Text>
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -420,21 +436,45 @@ export default function ProfileScreen() {
     
     return (
       <TouchableOpacity
-        className={`mb-2 p-3 ${isAdded ? 'bg-gray-100 dark:bg-gray-700' : 'bg-white dark:bg-gray-800'} rounded-lg shadow-sm`}
+        className={`p-4 rounded-xl shadow-sm border ${isAdded 
+          ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+          : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+        }`}
         onPress={() => !isAdded && addAllergy(item)}
         disabled={isAdded}
       >
         <View className="flex-row justify-between items-center">
           <View className="flex-row items-center flex-1">
-            <Ionicons 
-              name={isAdded ? "checkmark-circle" : "add-circle"} 
-              size={20} 
-              color={isAdded ? "#22c55e" : "#3b82f6"} 
-              style={{ marginRight: 8 }} 
-            />
-            <Text className="text-gray-900 dark:text-gray-100 font-semibold">{item.name}</Text>
+            <View className={`w-9 h-9 rounded-full items-center justify-center mr-3 ${
+              isAdded 
+                ? 'bg-blue-100 dark:bg-blue-800' 
+                : 'bg-gray-100 dark:bg-gray-700'
+            }`}>
+              <Ionicons 
+                name={isAdded ? "checkmark" : "add"} 
+                size={18} 
+                color={isAdded ? "#3b82f6" : "#6b7280"} 
+              />
+            </View>
+            <View>
+              <Text className={`font-semibold ${
+                isAdded 
+                  ? 'text-blue-700 dark:text-blue-400' 
+                  : 'text-gray-900 dark:text-gray-100'
+              }`}>
+                {item.name}
+              </Text>
+              <Text className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+                {item.category}
+              </Text>
+            </View>
           </View>
-          <Text className="text-gray-500 dark:text-gray-400 text-xs">{item.category}</Text>
+          
+          {isAdded && (
+            <Text className="text-blue-600 dark:text-blue-400 text-xs font-medium px-2 py-1 bg-blue-100 dark:bg-blue-800 rounded-full">
+              Added
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -448,65 +488,105 @@ export default function ProfileScreen() {
       transparent={true}
       onRequestClose={() => setShowAllergyModal(false)}
     >
-      <View className="flex-1 bg-black bg-opacity-50 justify-end">
+      <View className="flex-1 bg-black/60 justify-end">
         <View className="bg-white dark:bg-gray-800 rounded-t-3xl p-6 h-2/3">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              {userAllergies.some(a => a.id === selectedAllergy?.id) ? "Edit" : "Add"} Allergy
-            </Text>
-            <TouchableOpacity onPress={() => setShowAllergyModal(false)}>
-              <Ionicons name="close" size={24} color="#9ca3af" />
+          {/* Modal Header */}
+          <View className="flex-row justify-between items-center mb-6">
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 items-center justify-center mr-3">
+                <Ionicons name="medical" size={22} color="#3b82f6" />
+              </View>
+              <Text className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                {userAllergies.some(a => a.id === selectedAllergy?.id) ? "Edit" : "Add"} Allergy
+              </Text>
+            </View>
+            <TouchableOpacity 
+              onPress={() => setShowAllergyModal(false)}
+              className="bg-gray-100 dark:bg-gray-700 p-2 rounded-full"
+            >
+              <Ionicons name="close" size={22} color="#9ca3af" />
             </TouchableOpacity>
           </View>
 
           {selectedAllergy && (
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text className="text-gray-900 dark:text-gray-100 font-bold text-lg mb-2">
-                {selectedAllergy.name}
-              </Text>
-              <Text className="text-gray-500 dark:text-gray-400 mb-4">
-                Category: {selectedAllergy.category}
-              </Text>
+              <View className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 mb-6">
+                <Text className="text-gray-900 dark:text-gray-100 font-bold text-xl mb-1">
+                  {selectedAllergy.name}
+                </Text>
+                <View className="flex-row items-center">
+                  <Ionicons name="pricetag-outline" size={16} color="#6b7280" style={{ marginRight: 6 }} />
+                  <Text className="text-gray-500 dark:text-gray-400">
+                    {selectedAllergy.category}
+                  </Text>
+                </View>
+              </View>
 
-              <Text className="text-gray-700 dark:text-gray-300 font-medium mb-2">
-                Severity:
+              <Text className="text-gray-700 dark:text-gray-300 font-medium mb-3 text-lg">
+                Severity
               </Text>
-              <View className="flex-row space-x-2 mb-4">
+              <View className="flex-row space-x-3 mb-6">
                 <TouchableOpacity
-                  className={`py-2 px-4 rounded-full ${selectedSeverity === "High" ? "bg-red-500" : "bg-gray-200 dark:bg-gray-700"}`}
+                  className={`py-3 flex-1 rounded-xl items-center justify-center ${selectedSeverity === "High" 
+                    ? "bg-red-500 border-red-600" 
+                    : "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"} border`}
                   onPress={() => setSelectedSeverity("High")}
                 >
-                  <Text className={selectedSeverity === "High" ? "text-white" : "text-gray-700 dark:text-gray-300"}>
+                  <Ionicons 
+                    name={selectedSeverity === "High" ? "alert-circle" : "alert-circle-outline"} 
+                    size={24} 
+                    color={selectedSeverity === "High" ? "white" : "#ef4444"} 
+                    style={{ marginBottom: 4 }}
+                  />
+                  <Text className={selectedSeverity === "High" ? "text-white font-bold" : "text-gray-700 dark:text-gray-300"}>
                     High
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className={`py-2 px-4 rounded-full ${selectedSeverity === "Medium" ? "bg-orange-500" : "bg-gray-200 dark:bg-gray-700"}`}
+                  className={`py-3 flex-1 rounded-xl items-center justify-center ${selectedSeverity === "Medium" 
+                    ? "bg-orange-500 border-orange-600" 
+                    : "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"} border`}
                   onPress={() => setSelectedSeverity("Medium")}
                 >
-                  <Text className={selectedSeverity === "Medium" ? "text-white" : "text-gray-700 dark:text-gray-300"}>
+                  <Ionicons 
+                    name={selectedSeverity === "Medium" ? "warning" : "warning-outline"} 
+                    size={24} 
+                    color={selectedSeverity === "Medium" ? "white" : "#f97316"} 
+                    style={{ marginBottom: 4 }}
+                  />
+                  <Text className={selectedSeverity === "Medium" ? "text-white font-bold" : "text-gray-700 dark:text-gray-300"}>
                     Medium
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  className={`py-2 px-4 rounded-full ${selectedSeverity === "Low" ? "bg-yellow-500" : "bg-gray-200 dark:bg-gray-700"}`}
+                  className={`py-3 flex-1 rounded-xl items-center justify-center ${selectedSeverity === "Low" 
+                    ? "bg-yellow-500 border-yellow-600" 
+                    : "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"} border`}
                   onPress={() => setSelectedSeverity("Low")}
                 >
-                  <Text className={selectedSeverity === "Low" ? "text-white" : "text-gray-700 dark:text-gray-300"}>
+                  <Ionicons 
+                    name={selectedSeverity === "Low" ? "information-circle" : "information-circle-outline"} 
+                    size={24} 
+                    color={selectedSeverity === "Low" ? "white" : "#eab308"} 
+                    style={{ marginBottom: 4 }}
+                  />
+                  <Text className={selectedSeverity === "Low" ? "text-white font-bold" : "text-gray-700 dark:text-gray-300"}>
                     Low
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              <Text className="text-gray-700 dark:text-gray-300 font-medium mb-2">
-                Notes:
+              <Text className="text-gray-700 dark:text-gray-300 font-medium mb-3 text-lg">
+                Notes
               </Text>
               <TextInput
-                className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg text-gray-800 dark:text-gray-200 mb-4"
-                placeholder="Add your notes here..."
+                className="bg-gray-100 dark:bg-gray-700 p-4 rounded-xl text-gray-800 dark:text-gray-200 mb-6 border border-gray-200 dark:border-gray-600"
+                placeholder="Add any personal notes about this allergy..."
                 placeholderTextColor="#9ca3af"
                 multiline
                 numberOfLines={4}
+                textAlignVertical="top"
+                style={{ minHeight: 100 }}
                 value={allergyNotes}
                 onChangeText={setAllergyNotes}
               />
@@ -515,12 +595,20 @@ export default function ProfileScreen() {
 
           <View className="mt-4">
             <TouchableOpacity
-              className="bg-blue-600 rounded-xl py-3"
+              className="bg-blue-600 rounded-xl py-4 shadow-md"
               onPress={confirmAddAllergy}
             >
-              <Text className="text-white font-semibold text-center">
-                {userAllergies.some(a => a.id === selectedAllergy?.id) ? "Update" : "Add"} Allergy
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <Ionicons 
+                  name={userAllergies.some(a => a.id === selectedAllergy?.id) ? "save" : "add-circle"} 
+                  size={22} 
+                  color="white" 
+                  style={{ marginRight: 8 }}
+                />
+                <Text className="text-white font-bold text-center text-lg">
+                  {userAllergies.some(a => a.id === selectedAllergy?.id) ? "Update" : "Add"} Allergy
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -530,7 +618,7 @@ export default function ProfileScreen() {
 
   return (
     <ScreenContainer scrollable={false}>
-      <Text className="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center mb-6">
+      <Text className="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center mb-4">
         My Profile
       </Text>
 
@@ -542,24 +630,29 @@ export default function ProfileScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
           {/* User info card */}
           <Card 
             title="Account Information" 
             icon="person-circle-outline" 
             variant="elevated"
-            className="mb-4"
+            style={{ marginBottom: 20 }}
           >
-            <View className="space-y-2">
-              <View className="flex-row items-center">
-                <Text className="text-gray-500 dark:text-gray-400 w-24">Username:</Text>
-                <Text className="text-gray-900 dark:text-gray-100 font-medium">
+            <View className="space-y-3 px-1">
+              <View className="flex-row items-center py-1">
+                <Ionicons name="person-outline" size={18} color="#6b7280" style={{ marginRight: 10 }} />
+                <Text className="text-gray-500 dark:text-gray-400 w-24 font-medium">Username:</Text>
+                <Text className="text-gray-900 dark:text-gray-100 font-semibold">
                   {user?.username || "Not available"}
                 </Text>
               </View>
-              <View className="flex-row items-center">
-                <Text className="text-gray-500 dark:text-gray-400 w-24">Email:</Text>
-                <Text className="text-gray-900 dark:text-gray-100 font-medium">
+              <View className="flex-row items-center py-1">
+                <Ionicons name="mail-outline" size={18} color="#6b7280" style={{ marginRight: 10 }} />
+                <Text className="text-gray-500 dark:text-gray-400 w-24 font-medium">Email:</Text>
+                <Text className="text-gray-900 dark:text-gray-100 font-semibold">
                   {user?.email || "Not available"}
                 </Text>
               </View>
@@ -571,7 +664,7 @@ export default function ProfileScreen() {
             title="My Allergies" 
             icon="medical" 
             variant="elevated"
-            className="mb-4"
+            style={{ marginBottom: 20 }}
           >
             {userAllergies.length > 0 ? (
               <FlatList
@@ -579,9 +672,11 @@ export default function ProfileScreen() {
                 renderItem={renderAllergyItem}
                 keyExtractor={(item) => item.id}
                 scrollEnabled={false}
+                contentContainerStyle={{ paddingTop: 4 }}
+                ItemSeparatorComponent={() => <View className="h-3" />}
                 ListFooterComponent={
                   <TouchableOpacity
-                    className="mt-2 flex-row items-center justify-center py-2 bg-gray-100 dark:bg-gray-700 rounded-lg"
+                    className="mt-4 flex-row items-center justify-center py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 shadow-sm"
                     onPress={() => {
                       // Open modal with a new common allergy
                       if (commonAllergies.length > 0) {
@@ -615,21 +710,21 @@ export default function ProfileScreen() {
                       }
                     }}
                   >
-                    <Ionicons name="add-circle-outline" size={20} color="#3b82f6" />
-                    <Text className="text-blue-600 dark:text-blue-400 ml-2">
+                    <Ionicons name="add-circle" size={22} color="#3b82f6" />
+                    <Text className="text-blue-600 dark:text-blue-400 ml-2 font-medium">
                       Add Allergy
                     </Text>
                   </TouchableOpacity>
                 }
               />
             ) : (
-              <View className="items-center py-6">
+              <View className="items-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <Ionicons name="medical-outline" size={48} color="#9ca3af" style={{ marginBottom: 12 }} />
-                <Text className="text-gray-600 dark:text-gray-400 text-center mb-4">
+                <Text className="text-gray-600 dark:text-gray-400 text-center mb-4 font-medium">
                   You haven't added any allergies yet
                 </Text>
                 <TouchableOpacity
-                  className="bg-blue-600 rounded-xl py-2 px-4"
+                  className="bg-blue-600 rounded-xl py-3 px-5 shadow-md"
                   onPress={() => {
                     // Open modal, but make sure we have common allergies loaded
                     if (commonAllergies.length === 0) {
@@ -653,7 +748,7 @@ export default function ProfileScreen() {
                     }
                   }}
                 >
-                  <Text className="text-white font-medium">
+                  <Text className="text-white font-semibold">
                     Add Your Allergies
                   </Text>
                 </TouchableOpacity>
@@ -673,11 +768,13 @@ export default function ProfileScreen() {
                 renderItem={renderCommonAllergyItem}
                 keyExtractor={(item) => item.id}
                 scrollEnabled={false}
+                contentContainerStyle={{ paddingTop: 4 }}
+                ItemSeparatorComponent={() => <View className="h-3" />}
               />
             ) : (
-              <View className="items-center py-4">
+              <View className="items-center py-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <ActivityIndicator size="small" color="#3b82f6" />
-                <Text className="text-gray-500 dark:text-gray-400 mt-2">
+                <Text className="text-gray-500 dark:text-gray-400 mt-3 font-medium">
                   Loading common allergies...
                 </Text>
               </View>
