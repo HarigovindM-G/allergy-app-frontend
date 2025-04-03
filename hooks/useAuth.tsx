@@ -88,66 +88,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Check if user is logged in on mount
+  // Function to refresh the access token
+  const refreshToken = async () => {
+    try {
+      const refresh_token = await secureStorage.getItem('refresh_token');
+      if (!refresh_token) {
+        return false;
+      }
+
+      const response = await fetch(`${API_URL}/auth/refresh/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await secureStorage.setItem('access_token', data.access_token);
+        await secureStorage.setItem('refresh_token', data.refresh_token);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      return false;
+    }
+  };
+
+  // Function to validate and refresh token if needed
+  const validateToken = async () => {
+    try {
+      const access_token = await secureStorage.getItem('access_token');
+      if (!access_token) {
+        return false;
+      }
+
+      const response = await fetch(`${API_URL}/auth/me/`, {
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setIsAuthenticated(true);
+        return true;
+      }
+
+      if (response.status === 401) {
+        // Try to refresh the token
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          // Retry the validation with new token
+          return validateToken();
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Token validation failed:', error);
+      return false;
+    }
+  };
+
+  // Check authentication status on mount and token change
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Check if we have tokens
-        const accessToken = await secureStorage.getItem('access_token');
-        const refreshToken = await secureStorage.getItem('refresh_token');
-        
-        console.log('Checking auth - Access token exists:', !!accessToken);
-        console.log('Checking auth - Refresh token exists:', !!refreshToken);
-        
-        if (!accessToken || !refreshToken) {
-          setIsAuthenticated(false);
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-
-        // Debug: Check authentication headers
-        try {
-          const debugResponse = await fetch(`${API_URL}/auth/debug-auth`, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            },
-          });
-          
-          if (debugResponse.ok) {
-            const debugData = await debugResponse.json();
-            console.log('Debug auth response during checkAuth:', debugData);
-          } else {
-            console.error('Debug auth failed during checkAuth:', await debugResponse.text());
-          }
-        } catch (debugError) {
-          console.error('Debug auth error during checkAuth:', debugError);
-        }
-
-        // Validate token by fetching user info
-        const response = await fetch(`${API_URL}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('User data fetched successfully:', userData);
-          setUser(userData);
-          setIsAuthenticated(true);
-        } else if (response.status === 401) {
-          console.log('Token expired, trying to refresh...');
-          // Token expired, try to refresh
-          await refreshAccessToken();
-        } else {
-          console.error('Auth check failed with status:', response.status);
-          console.error('Auth check error response:', await response.text().catch(() => 'No response text'));
-          // Other error, clear tokens
+        const isValid = await validateToken();
+        if (!isValid) {
           await logout();
         }
       } catch (error) {
-        console.error('Auth check error:', error);
+        console.error('Auth check failed:', error);
         await logout();
       } finally {
         setLoading(false);
@@ -157,209 +173,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  // Function to refresh the access token
-  const refreshAccessToken = async (): Promise<boolean> => {
+  const login = async (username: string, password: string) => {
     try {
-      const refreshToken = await secureStorage.getItem('refresh_token');
-      console.log('Refreshing token - Refresh token exists:', !!refreshToken);
-      
-      if (!refreshToken) {
-        console.log('No refresh token found, logging out');
-        await logout();
-        return false;
-      }
-
-      console.log('Attempting to refresh token...');
-      const response = await fetch(`${API_URL}/auth/refresh`, {
+      const response = await fetch(`${API_URL}/auth/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Token refresh successful, new tokens received');
-        
         await secureStorage.setItem('access_token', data.access_token);
         await secureStorage.setItem('refresh_token', data.refresh_token);
         
-        // Debug: Check if token is stored correctly
-        const storedToken = await secureStorage.getItem('access_token');
-        console.log('New stored token:', storedToken?.substring(0, 20) + '...');
-        
-        // Fetch user data with new token
-        const userResponse = await fetch(`${API_URL}/auth/me`, {
+        const userData = await fetch(`${API_URL}/auth/me/`, {
           headers: {
-            'Authorization': `Bearer ${data.access_token}`
+            'Authorization': `Bearer ${data.access_token}`,
           },
-        });
-        
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          console.log('User data fetched successfully after refresh:', userData);
-          setUser(userData);
-          setIsAuthenticated(true);
-          return true;
-        } else {
-          console.error('Failed to fetch user data after refresh:', await userResponse.text().catch(() => 'No response text'));
-        }
-      } else {
-        // Handle specific error responses
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('Token refresh failed:', errorData);
-        console.error('Token refresh status:', response.status);
+        }).then(res => res.json());
+
+        setUser(userData);
+        setIsAuthenticated(true);
+        return true;
       }
-      
-      // If we get here, refresh failed
-      console.log('Token refresh failed, logging out');
-      await logout();
       return false;
     } catch (error) {
-      console.error('Token refresh error:', error);
-      await logout();
+      console.error('Login failed:', error);
       return false;
     }
   };
 
-  // Login function
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const logout = async () => {
     try {
-      setLoading(true);
-      
-      // Test the test endpoint first
-      try {
-        const testResponse = await fetch(`${API_URL}/test`);
-        if (testResponse.ok) {
-          console.log('Test endpoint works:', await testResponse.json());
-        } else {
-          console.error('Test endpoint failed:', await testResponse.text());
-        }
-      } catch (testError) {
-        console.error('Test endpoint error:', testError);
-      }
-      
-      // Create form data for OAuth2 password flow
-      const formData = new FormData();
-      formData.append('username', username);
-      formData.append('password', password);
-      
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Login successful, tokens received:', data);
-        
-        // Store tokens securely
-        await secureStorage.setItem('access_token', data.access_token);
-        await secureStorage.setItem('refresh_token', data.refresh_token);
-        
-        // Debug: Check if token is stored correctly
-        const storedToken = await secureStorage.getItem('access_token');
-        console.log('Stored token:', storedToken?.substring(0, 20) + '...');
-        
-        // Debug: Check authentication headers
-        try {
-          const debugResponse = await fetch(`${API_URL}/auth/debug-auth`, {
-            headers: {
-              'Authorization': `Bearer ${data.access_token}`
-            },
-          });
-          
-          if (debugResponse.ok) {
-            const debugData = await debugResponse.json();
-            console.log('Debug auth response:', debugData);
-          } else {
-            console.error('Debug auth failed:', await debugResponse.text());
-          }
-        } catch (debugError) {
-          console.error('Debug auth error:', debugError);
-        }
-        
-        // Fetch user data
-        const userResponse = await fetch(`${API_URL}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${data.access_token}`
-          },
-        });
-        
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          setUser(userData);
-          setIsAuthenticated(true);
-          return true;
-        } else {
-          console.error('Failed to fetch user data:', await userResponse.text());
-        }
-      } else {
-        // Handle specific error responses
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('Login failed:', errorData);
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Login error:', error);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Signup function
-  const signup = async (email: string, username: string, password: string): Promise<boolean> => {
-    try {
-      setLoading(true);
-      
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-      
-      const response = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({ email, username, password }),
-        // Don't use credentials for now
-        // credentials: 'include',
-      });
-
-      if (response.ok) {
-        // After successful signup, log the user in
-        return await login(username, password);
-      } else {
-        // Handle specific error responses
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('Signup failed:', errorData);
-        return false;
-      }
-      
-    } catch (error) {
-      console.error('Signup error:', error);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Logout function
-  const logout = async (): Promise<void> => {
-    try {
-      // Clear tokens
       await secureStorage.removeItem('access_token');
       await secureStorage.removeItem('refresh_token');
-      
-      // Reset state
-      setUser(null);
-      setIsAuthenticated(false);
-      
-      // Navigate to login
-      router.replace('/(auth)/login');
     } catch (error) {
       console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      setIsAuthenticated(false);
     }
   };
 
@@ -368,7 +222,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated,
     user,
     login,
-    signup,
     logout,
     loading,
   };

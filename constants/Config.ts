@@ -16,11 +16,10 @@ export const getApiUrl = (endpoint: string) => {
   // Make sure endpoint starts with a slash
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-  // Make sure endpoint doesn't end with a slash unless it's just "/"
-  const finalEndpoint =
-    cleanEndpoint.length > 1 && cleanEndpoint.endsWith("/")
-      ? cleanEndpoint.slice(0, -1)
-      : cleanEndpoint;
+  // Always add trailing slash to avoid redirects
+  const finalEndpoint = cleanEndpoint.endsWith("/")
+    ? cleanEndpoint
+    : `${cleanEndpoint}/`;
 
   return `${baseUrl}${finalEndpoint}`;
 };

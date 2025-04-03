@@ -30,7 +30,7 @@ interface ScanHistoryItem {
   id: number;
   product_name: string | null;
   input_text: string;
-  allergens: Allergen[];
+  allergens: Allergen[] | string; // Can be array or string (JSON)
   image_url: string | null;
   created_at: string;
 }
@@ -98,6 +98,7 @@ export default function ResultsScreen() {
       // Use direct URL
       const detectUrl = `${API_URL}/allergens/detect`;
       console.log("Detecting allergens at:", detectUrl);
+      console.log("Sending text for analysis:", inputText);
       
       // Call the allergen detection API directly
       const res = await fetch(detectUrl, {
@@ -116,6 +117,45 @@ export default function ResultsScreen() {
       
       const data = await res.json();
       console.log("Detected allergens count:", data.allergens?.length || 0);
+      console.log("Detected allergens:", JSON.stringify(data.allergens));
+      
+      // Look for common allergens in the text if none were detected by the ML model
+      if (!data.allergens || data.allergens.length === 0) {
+        const commonAllergenKeywords = {
+          'Wheat': ['wheat', 'flour', 'gluten', 'whole wheat', 'white wheat', 'wheat flour'],
+          'Milk': ['milk', 'dairy', 'cream', 'lactose', 'whey', 'casein', 'butter'],
+          'Eggs': ['egg', 'eggs', 'albumin', 'mayonnaise'],
+          'Nuts': ['almond', 'walnut', 'cashew', 'pecan', 'hazelnut', 'nut', 'nuts'],
+          'Soy': ['soy', 'soya', 'soybean', 'tofu', 'soy lecithin'],
+          'Fish': ['fish', 'salmon', 'tuna', 'cod', 'mackerel'],
+          'Shellfish': ['shellfish', 'shrimp', 'prawn', 'crab', 'lobster'],
+          'Peanuts': ['peanut', 'peanuts', 'arachis']
+        };
+        
+        const manualDetectedAllergens: Allergen[] = [];
+        const lowerText = inputText.toLowerCase();
+        
+        // Check for each common allergen keyword
+        Object.entries(commonAllergenKeywords).forEach(([allergen, keywords]) => {
+          const foundKeywords = keywords.filter(keyword => 
+            lowerText.includes(keyword.toLowerCase())
+          );
+          
+          if (foundKeywords.length > 0) {
+            manualDetectedAllergens.push({
+              allergen: allergen,
+              confidence: 0.85,
+              evidence: foundKeywords.map(kw => `Found "${kw}" in ingredients`),
+              is_user_allergen: false
+            });
+          }
+        });
+        
+        if (manualDetectedAllergens.length > 0) {
+          console.log("Manually detected allergens:", JSON.stringify(manualDetectedAllergens));
+          data.allergens = manualDetectedAllergens;
+        }
+      }
       
       // Set allergens immediately to show results to user
       setAllergens(data.allergens || []);
@@ -124,8 +164,11 @@ export default function ResultsScreen() {
       setLoading(false);
       
       // Save to history after displaying results
-      if (data.allergens) {
+      if (data.allergens && data.allergens.length > 0) {
         saveSimpleHistory(inputText, data.allergens);
+      } else {
+        // Even if no allergens were detected, still save to history
+        saveSimpleHistory(inputText, []);
       }
       
     } catch (error: any) {
@@ -138,8 +181,46 @@ export default function ResultsScreen() {
   // New simple function to save history
   const saveSimpleHistory = async (text: string, allergenData: Allergen[]) => {
     try {
+      // Double-check for common allergens in the text if none were provided
+      let finalAllergens = [...allergenData];
+      
+      if (finalAllergens.length === 0) {
+        const inputText = text.toLowerCase();
+        const commonAllergenKeywords = {
+          'Wheat': ['wheat', 'flour', 'gluten', 'whole wheat', 'white wheat'],
+          'Milk': ['milk', 'dairy', 'cream', 'lactose', 'whey', 'casein', 'butter'],
+          'Eggs': ['egg', 'eggs', 'albumin', 'mayonnaise'],
+          'Nuts': ['almond', 'walnut', 'cashew', 'pecan', 'hazelnut', 'nut', 'nuts'],
+          'Soy': ['soy', 'soya', 'soybean', 'tofu', 'soy lecithin'],
+          'Fish': ['fish', 'salmon', 'tuna', 'cod', 'mackerel'],
+          'Shellfish': ['shellfish', 'shrimp', 'prawn', 'crab', 'lobster'],
+          'Peanuts': ['peanut', 'peanuts', 'arachis']
+        };
+        
+        Object.entries(commonAllergenKeywords).forEach(([allergen, keywords]) => {
+          const foundKeywords = keywords.filter(keyword => 
+            inputText.includes(keyword.toLowerCase())
+          );
+          
+          if (foundKeywords.length > 0) {
+            finalAllergens.push({
+              allergen: allergen,
+              confidence: 0.85,
+              evidence: foundKeywords.map(kw => `Found "${kw}" in ingredients`),
+              is_user_allergen: false
+            });
+          }
+        });
+        
+        if (finalAllergens.length > 0) {
+          console.log("Found allergens in text for history save:", JSON.stringify(finalAllergens));
+          // Update the state so the current view reflects this too
+          setAllergens(finalAllergens);
+        }
+      }
+      
       // Create a very simplified version of the allergen data
-      const simpleAllergens = allergenData.map(a => ({
+      const simpleAllergens = finalAllergens.map(a => ({
         allergen: a.allergen,
         confidence: a.confidence,
         evidence: a.evidence,
@@ -270,7 +351,58 @@ export default function ResultsScreen() {
   // Render scan history item
   const renderHistoryItem = ({ item }: { item: ScanHistoryItem }) => {
     // Ensure allergens is an array before filtering
-    const allergens = item.allergens || [];
+    let allergens: Allergen[] = [];
+    
+    try {
+      if (typeof item.allergens === 'string') {
+        // Try to parse JSON string
+        allergens = JSON.parse(item.allergens);
+      } else if (Array.isArray(item.allergens)) {
+        // Already an array
+        allergens = item.allergens;
+      } else if (item.allergens) {
+        // Some other object that needs to be handled
+        console.log("Unknown allergens format:", typeof item.allergens);
+        allergens = [];
+      }
+    } catch (error) {
+      console.error("Error parsing allergens:", error);
+      allergens = [];
+    }
+    
+    // If no allergens were found in the data, check the input text directly
+    if (allergens.length === 0) {
+      const inputText = item.input_text.toLowerCase();
+      const commonAllergenKeywords = {
+        'Wheat': ['wheat', 'flour', 'gluten', 'whole wheat', 'white wheat'],
+        'Milk': ['milk', 'dairy', 'cream', 'lactose', 'whey', 'casein', 'butter'],
+        'Eggs': ['egg', 'eggs', 'albumin', 'mayonnaise'],
+        'Nuts': ['almond', 'walnut', 'cashew', 'pecan', 'hazelnut', 'nut', 'nuts'],
+        'Soy': ['soy', 'soya', 'soybean', 'tofu', 'soy lecithin'],
+        'Fish': ['fish', 'salmon', 'tuna', 'cod', 'mackerel'],
+        'Shellfish': ['shellfish', 'shrimp', 'prawn', 'crab', 'lobster'],
+        'Peanuts': ['peanut', 'peanuts', 'arachis']
+      };
+      
+      Object.entries(commonAllergenKeywords).forEach(([allergen, keywords]) => {
+        const foundKeywords = keywords.filter(keyword => 
+          inputText.includes(keyword.toLowerCase())
+        );
+        
+        if (foundKeywords.length > 0) {
+          allergens.push({
+            allergen: allergen,
+            confidence: 0.85,
+            evidence: foundKeywords.map(kw => `Found "${kw}" in ingredients`),
+            is_user_allergen: false
+          });
+        }
+      });
+      
+      if (allergens.length > 0) {
+        console.log("Found allergens in text for history item:", item.id);
+      }
+    }
     
     // Count allergens by type
     const userKnownCount = allergens.filter(a => a.is_user_allergen).length;
@@ -278,10 +410,28 @@ export default function ResultsScreen() {
     const mediumRiskCount = allergens.filter(a => !a.is_user_allergen && a.confidence >= 0.5 && a.confidence < 0.8).length;
     const lowRiskCount = allergens.filter(a => !a.is_user_allergen && a.confidence < 0.5).length;
     
+    // Check if there are any allergens at all
+    const hasAllergens = userKnownCount > 0 || highRiskCount > 0 || mediumRiskCount > 0 || lowRiskCount > 0;
+    
     return (
       <TouchableOpacity 
         className="mb-3"
-        onPress={() => setSelectedScan(item)}
+        onPress={() => {
+          // Make sure we pass the parsed allergens to the selected scan
+          console.log("Original allergens type:", typeof item.allergens, Array.isArray(item.allergens));
+          
+          // If there are no allergens in the data, but we found some in the text
+          // make sure we include them in the selected scan
+          if (allergens.length > 0) {
+            console.log("Setting selectedScan with detected allergens:", allergens.length);
+            setSelectedScan({
+              ...item,
+              allergens: allergens
+            });
+          } else {
+            setSelectedScan(item);
+          }
+        }}
       >
         <Card variant="outlined">
           <View className="flex-row justify-between items-center mb-2">
@@ -300,7 +450,7 @@ export default function ResultsScreen() {
             {format(new Date(item.created_at), "MMM d, yyyy - h:mm a")}
           </Text>
           
-          {allergens.length > 0 ? (
+          {hasAllergens ? (
             <View className="flex-row space-x-2 mb-1">
               {userKnownCount > 0 && (
                 <View className="bg-red-100 dark:bg-red-900 rounded-full px-2 py-1 flex-row items-center">
@@ -381,7 +531,52 @@ export default function ResultsScreen() {
             >
               {/* Ensure allergens is an array */}
               {(() => {
-                const allergens = selectedScan.allergens || [];
+                let allergens: Allergen[] = [];
+                
+                try {
+                  if (selectedScan) {
+                    if (typeof selectedScan.allergens === 'string') {
+                      // Try to parse JSON string
+                      allergens = JSON.parse(selectedScan.allergens);
+                    } else if (Array.isArray(selectedScan.allergens)) {
+                      // Already an array
+                      allergens = selectedScan.allergens;
+                    }
+                    
+                    // If no allergens were found in the data, check the input text directly
+                    if (allergens.length === 0) {
+                      const inputText = selectedScan.input_text.toLowerCase();
+                      const commonAllergenKeywords = {
+                        'Wheat': ['wheat', 'flour', 'gluten', 'whole wheat', 'white wheat'],
+                        'Milk': ['milk', 'dairy', 'cream', 'lactose', 'whey', 'casein', 'butter'],
+                        'Eggs': ['egg', 'eggs', 'albumin', 'mayonnaise'],
+                        'Nuts': ['almond', 'walnut', 'cashew', 'pecan', 'hazelnut', 'nut', 'nuts'],
+                        'Soy': ['soy', 'soya', 'soybean', 'tofu', 'soy lecithin'],
+                        'Fish': ['fish', 'salmon', 'tuna', 'cod', 'mackerel'],
+                        'Shellfish': ['shellfish', 'shrimp', 'prawn', 'crab', 'lobster'],
+                        'Peanuts': ['peanut', 'peanuts', 'arachis']
+                      };
+                      
+                      Object.entries(commonAllergenKeywords).forEach(([allergen, keywords]) => {
+                        const foundKeywords = keywords.filter(keyword => 
+                          inputText.includes(keyword.toLowerCase())
+                        );
+                        
+                        if (foundKeywords.length > 0) {
+                          allergens.push({
+                            allergen: allergen,
+                            confidence: 0.85,
+                            evidence: foundKeywords.map(kw => `Found "${kw}" in ingredients`),
+                            is_user_allergen: false
+                          });
+                        }
+                      });
+                    }
+                  }
+                } catch (error) {
+                  console.error("Error parsing allergens in detail view:", error);
+                  allergens = [];
+                }
                 
                 return (
                   <View>
@@ -403,23 +598,23 @@ export default function ResultsScreen() {
                     </Text>
                     
                     {allergens.length > 0 ? (
-                      <View className="space-y-3">
+                      <View className="space-y-4">
                         {allergens.map((item, idx) => (
                           <View
                             key={idx}
-                            className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 shadow-sm"
+                            className="bg-gray-50 dark:bg-gray-700 rounded-xl p-5 shadow-sm"
                           >
-                            <View className="flex-row items-center mb-2">
+                            <View className="flex-row items-center mb-3">
                               <Ionicons 
                                 name={getConfidenceIcon(item.confidence)} 
-                                size={20} 
+                                size={24} 
                                 color={item.confidence >= 0.8 ? "#dc2626" : item.confidence >= 0.5 ? "#ea580c" : "#ca8a04"} 
-                                style={{ marginRight: 8 }}
+                                style={{ marginRight: 12 }}
                               />
                               <Text className="text-gray-900 dark:text-gray-100 font-bold text-lg flex-1">
                                 {item.allergen}
                               </Text>
-                              <View className="bg-gray-200 dark:bg-gray-600 rounded-full px-2 py-1">
+                              <View className="bg-gray-200 dark:bg-gray-600 rounded-full px-3 py-1.5">
                                 <Text className={`${getConfidenceColor(item.confidence)} font-medium text-sm`}>
                                   {(item.confidence * 100).toFixed(0)}% match
                                 </Text>
@@ -428,8 +623,8 @@ export default function ResultsScreen() {
                             
                             {/* User Allergen Tag */}
                             {item.is_user_allergen && (
-                              <View className="mt-1 mb-2 bg-red-100 dark:bg-red-900 self-start rounded-full px-2 py-1 flex-row items-center">
-                                <Ionicons name="warning" size={14} color="#dc2626" style={{ marginRight: 4 }} />
+                              <View className="mt-1 mb-3 bg-red-100 dark:bg-red-900 self-start rounded-full px-3 py-1.5 flex-row items-center">
+                                <Ionicons name="warning" size={14} color="#dc2626" style={{ marginRight: 6 }} />
                                 <Text className="text-red-600 dark:text-red-400 text-xs font-medium">
                                   Your known allergen
                                 </Text>
@@ -437,13 +632,13 @@ export default function ResultsScreen() {
                             )}
                             
                             {item.evidence && item.evidence.length > 0 && (
-                              <View className="mt-2 bg-white dark:bg-gray-800 rounded-lg p-3">
-                                <Text className="text-gray-700 dark:text-gray-300 font-medium mb-1">
+                              <View className="mt-3 bg-white dark:bg-gray-800 rounded-lg p-4">
+                                <Text className="text-gray-700 dark:text-gray-300 font-medium mb-2">
                                   Evidence Found:
                                 </Text>
                                 {item.evidence.map((ev: string, eIdx: number) => (
-                                  <View key={eIdx} className="flex-row items-center mt-1">
-                                    <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                                  <View key={eIdx} className="flex-row items-center mt-2">
+                                    <View className="w-2.5 h-2.5 rounded-full bg-blue-500 mr-3" />
                                     <Text className="text-gray-600 dark:text-gray-300 text-sm flex-1">
                                       {ev}
                                     </Text>
@@ -586,23 +781,23 @@ export default function ResultsScreen() {
               variant="elevated"
             >
               {allergens.length > 0 ? (
-                <View className="space-y-3">
+                <View className="space-y-4">
                   {allergens.map((item, idx) => (
                     <View
                       key={idx}
-                      className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 shadow-sm"
+                      className="bg-gray-50 dark:bg-gray-700 rounded-xl p-5 shadow-sm"
                     >
-                      <View className="flex-row items-center mb-2">
+                      <View className="flex-row items-center mb-3">
                         <Ionicons 
                           name={getConfidenceIcon(item.confidence)} 
-                          size={20} 
+                          size={24} 
                           color={item.confidence >= 0.8 ? "#dc2626" : item.confidence >= 0.5 ? "#ea580c" : "#ca8a04"} 
-                          style={{ marginRight: 8 }}
+                          style={{ marginRight: 12 }}
                         />
                         <Text className="text-gray-900 dark:text-gray-100 font-bold text-lg flex-1">
                           {item.allergen}
                         </Text>
-                        <View className="bg-gray-200 dark:bg-gray-600 rounded-full px-2 py-1">
+                        <View className="bg-gray-200 dark:bg-gray-600 rounded-full px-3 py-1.5">
                           <Text className={`${getConfidenceColor(item.confidence)} font-medium text-sm`}>
                             {(item.confidence * 100).toFixed(0)}% match
                           </Text>
@@ -611,8 +806,8 @@ export default function ResultsScreen() {
                       
                       {/* User Allergen Tag */}
                       {item.is_user_allergen && (
-                        <View className="mt-1 mb-2 bg-red-100 dark:bg-red-900 self-start rounded-full px-2 py-1 flex-row items-center">
-                          <Ionicons name="warning" size={14} color="#dc2626" style={{ marginRight: 4 }} />
+                        <View className="mt-1 mb-3 bg-red-100 dark:bg-red-900 self-start rounded-full px-3 py-1.5 flex-row items-center">
+                          <Ionicons name="warning" size={14} color="#dc2626" style={{ marginRight: 6 }} />
                           <Text className="text-red-600 dark:text-red-400 text-xs font-medium">
                             Your known allergen
                           </Text>
@@ -620,13 +815,13 @@ export default function ResultsScreen() {
                       )}
                       
                       {item.evidence && item.evidence.length > 0 && (
-                        <View className="mt-2 bg-white dark:bg-gray-800 rounded-lg p-3">
-                          <Text className="text-gray-700 dark:text-gray-300 font-medium mb-1">
+                        <View className="mt-3 bg-white dark:bg-gray-800 rounded-lg p-4">
+                          <Text className="text-gray-700 dark:text-gray-300 font-medium mb-2">
                             Evidence Found:
                           </Text>
                           {item.evidence.map((ev: string, eIdx: number) => (
-                            <View key={eIdx} className="flex-row items-center mt-1">
-                              <View className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                            <View key={eIdx} className="flex-row items-center mt-2">
+                              <View className="w-2.5 h-2.5 rounded-full bg-blue-500 mr-3" />
                               <Text className="text-gray-600 dark:text-gray-300 text-sm flex-1">
                                 {ev}
                               </Text>
