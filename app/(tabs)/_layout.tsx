@@ -57,6 +57,7 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Temporarily disabled medicine tab
       <Tabs.Screen
         name="medicine"
         options={{
@@ -66,6 +67,7 @@ export default function TabLayout() {
           ),
         }}
       />
+      */}
       <Tabs.Screen
         name="emergency"
         options={{

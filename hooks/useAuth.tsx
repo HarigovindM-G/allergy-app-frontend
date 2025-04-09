@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { API_URL } from '@/constants/Config';
+import { API_URL, getApiUrl } from '@/constants/Config';
 import { Platform } from 'react-native';
 
 // Define the shape of our authentication context
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const response = await fetch(`${API_URL}/auth/refresh/`, {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const response = await fetch(`${API_URL}/auth/me/`, {
+      const response = await fetch(`${API_URL}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${access_token}`,
         },
@@ -175,12 +175,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await fetch(`${API_URL}/auth/login/`, {
+      // Create form data for OAuth2 format
+      const formData = new FormData();
+      formData.append('username', username);
+      formData.append('password', password);
+      formData.append('grant_type', 'password');
+
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: formData,
       });
 
       if (response.ok) {
@@ -188,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await secureStorage.setItem('access_token', data.access_token);
         await secureStorage.setItem('refresh_token', data.refresh_token);
         
-        const userData = await fetch(`${API_URL}/auth/me/`, {
+        const userData = await fetch(`${API_URL}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${data.access_token}`,
           },
